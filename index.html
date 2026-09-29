@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>키워드 뉴스 알림</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --orange:#F58220; --blue:#043B72; --soft:#FAB072;
+  --bg:#FFFFFF; --panel:#F3F5F8; --ink:#1A1F26; --sub:#5B6470; --line:#D7D7D7; --new:#FFF4EA;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12161C; --panel:#1C222B; --ink:#E9EDF2; --sub:#9AA4B1; --line:#2E3642; --new:#2A2118; --blue:#7FB1E6;
+}}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Spoqa Han Sans Neo","Noto Sans KR",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 18px 64px}
+header{border-bottom:1px solid var(--orange);padding-bottom:16px;margin-bottom:20px}
+h1{font-size:26px;line-height:1.3;margin:0 0 4px;letter-spacing:-.02em}
+.lead{color:var(--sub);margin:0;font-size:14px}
+.add{display:flex;gap:8px;margin-bottom:12px}
+.add input{flex:1;min-width:0;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.add input:focus-visible,button:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+button{font:inherit;cursor:pointer;border-radius:6px}
+.primary{background:var(--orange);color:#fff;border:0;padding:0 18px;font-weight:700}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);padding:7px 12px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;font-size:14px;background:var(--bg);color:var(--ink)}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.chip .n{font-size:12px;font-weight:700;color:var(--orange);margin-left:4px}
+.chip.on .n{color:var(--soft)}
+.chip .x{border:0;background:none;color:inherit;opacity:.6;padding:0 6px;font-size:16px;line-height:1}
+.chip .x:hover{opacity:1}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+.status{color:var(--sub);font-size:13px;margin-right:auto}
+.feed{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.item{border-bottom:1px solid var(--line);padding:14px 4px 14px 14px;position:relative}
+.item.fresh{background:var(--new)}
+.item.fresh::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;background:var(--orange);border-radius:2px}
+.item a{color:var(--ink);text-decoration:none;font-weight:500;font-size:16px;line-height:1.5}
+.item a:hover{text-decoration:underline}
+.meta{font-size:13px;color:var(--sub);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+.tag{color:var(--blue);font-weight:700}
+.empty{padding:40px 12px;text-align:center;color:var(--sub);background:var(--panel);border-radius:8px;margin-top:12px}
+.empty b{color:var(--ink)}
+.err{color:#C0392B;font-size:13px;margin:6px 0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--blue);color:#fff;padding:10px 16px;border-radius:6px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+footer{margin-top:28px;font-size:12px;color:var(--sub)}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>키워드 뉴스 알림</h1>
+    <p class="lead">종목명이나 키워드를 등록하면 새 기사를 5분마다 모아 보여줍니다. 등록한 키워드는 이 기기에만 저장됩니다.</p>
+  </header>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <input id="kw" placeholder="예: 삼성전자, 고배당 분리과세" maxlength="50" aria-label="키워드">
+    <button class="primary" type="submit">추가</button>
+  </form>
+  <div class="chips" id="chips"></div>
+
+  <div class="bar">
+    <span class="status" id="status"></span>
+    <button class="ghost" id="notifyBtn" type="button">알림 켜기</button>
+    <button class="ghost" id="shareBtn" type="button">키워드 공유</button>
+    <button class="ghost" id="refreshBtn" type="button">새로고침</button>
+  </div>
+  <div id="errors"></div>
+  <ul class="feed" id="feed"></ul>
+
+  <footer>뉴스 출처: Google 뉴스 검색 결과(최근 2일). 각 기사의 저작권은 해당 언론사에 있습니다.</footer>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const INTERVAL = 5 * 60 * 1000;
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+};
+let keywords = store.get("kw", []);
+let seen = new Set(store.get("seen", []));
+let items = [];          // {id,title,link,source,pubDate,keyword,fresh}
+let filter = null;
+let firstLoad = true;
+
+// 공유 링크(?k=삼성전자,코스피)로 들어오면 키워드 추가
+const shared = new URLSearchParams(location.search).get("k");
+if (shared){
+  shared.split(",").map(s=>s.trim()).filter(Boolean).forEach(k=>{ if(!keywords.includes(k)) keywords.push(k); });
+  store.set("kw", keywords);
+  history.replaceState(null, "", location.pathname);
+}
+
+const $ = id => document.getElementById(id);
+const toast = msg => { const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2200); };
+const ago = iso => {
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return "방금"; if (m < 60) return m + "분 전";
+  const h = Math.round(m/60); if (h < 24) return h + "시간 전";
+  return Math.round(h/24) + "일 전";
+};
+
+function renderChips(){
+  const box = $("chips"); box.innerHTML = "";
+  const counts = {}; items.forEach(i=>{ if(i.fresh) counts[i.keyword]=(counts[i.keyword]||0)+1; });
+  const mk = (label, key) => {
+    const c = document.createElement("span");
+    c.className = "chip" + (filter===key ? " on" : "");
+    const b = document.createElement("button");
+    b.type="button"; b.style.cssText="border:0;background:none;color:inherit;font:inherit;padding:0";
+    b.textContent = label; b.onclick = () => { filter = key; render(); };
+    c.append(b);
+    const n = key===null ? items.filter(i=>i.fresh).length : counts[key];
+    if (n){ const s=document.createElement("span"); s.className="n"; s.textContent=n; c.append(s); }
+    if (key !== null){
+      const x = document.createElement("button"); x.type="button"; x.className="x"; x.textContent="×";
+      x.setAttribute("aria-label", key + " 삭제"); x.onclick = () => removeKw(key); c.append(x);
+    } else c.style.paddingRight = "12px";
+    box.append(c);
+  };
+  if (keywords.length) mk("전체", null);
+  keywords.forEach(k => mk(k, k));
+}
+
+function renderFeed(){
+  const feed = $("feed"); feed.innerHTML = "";
+  if (!keywords.length){
+    feed.innerHTML = '<div class="empty"><b>등록된 키워드가 없습니다.</b><br>위 입력창에 종목명이나 관심 키워드를 추가하세요.</div>'; return;
+  }
+  const list = items.filter(i => filter===null || i.keyword===filter);
+  if (!list.length){ feed.innerHTML = '<div class="empty">최근 2일 사이 새 기사가 없습니다.</div>'; return; }
+  list.forEach(i => {
+    const li = document.createElement("li"); li.className = "item" + (i.fresh ? " fresh" : "");
+    const a = document.createElement("a"); a.href=i.link; a.target="_blank"; a.rel="noopener"; a.textContent=i.title;
+    const m = document.createElement("div"); m.className="meta";
+    const t = document.createElement("span"); t.className="tag"; t.textContent="#"+i.keyword;
+    const s = document.createElement("span"); s.textContent=i.source||"";
+    const d = document.createElement("span"); d.textContent=ago(i.pubDate);
+    m.append(t,s,d); li.append(a,m); feed.append(li);
+  });
+}
+function render(){ renderChips(); renderFeed(); }
+
+async function fetchAll(){
+  if (!keywords.length){ render(); $("status").textContent=""; return; }
+  $("status").textContent = "불러오는 중…";
+  $("errors").innerHTML = "";
+  const results = await Promise.all(keywords.map(async k => {
+    try{
+      const r = await fetch("/api/news?q=" + encodeURIComponent(k));
+      const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      return j.items.map(it => ({...it, keyword:k, id:k+"|"+it.link}));
+    }catch(e){
+      const p=document.createElement("p"); p.className="err"; p.textContent=`"${k}" 뉴스를 불러오지 못했습니다. 잠시 뒤 새로고침하세요.`;
+      $("errors").append(p); return [];
+    }
+  }));
+  const prevFresh = new Set(items.filter(i=>i.fresh).map(i=>i.id));
+  const merged = results.flat().map(i => ({...i, fresh: !firstLoad && (!seen.has(i.id) || prevFresh.has(i.id))}));
+  // 같은 기사가 여러 키워드에 걸리면 하나만
+  const byLink = new Map(); merged.forEach(i => { if(!byLink.has(i.link)) byLink.set(i.link, i); });
+  const newOnes = [...byLink.values()].filter(i => i.fresh && !prevFresh.has(i.id));
+  items = [...byLink.values()].sort((a,b)=> new Date(b.pubDate)-new Date(a.pubDate));
+  items.forEach(i => seen.add(i.id));
+  store.set("seen", [...seen].slice(-3000));
+  firstLoad = false;
+  $("status").textContent = "업데이트 " + new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) + " · 5분마다 자동";
+  render();
+  if (newOnes.length) notify(newOnes);
+}
+
+function notify(list){
+  document.title = `(${items.filter(i=>i.fresh).length}) 키워드 뉴스 알림`;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  list.slice(0,3).forEach(i => {
+    const n = new Notification(`[${i.keyword}] 새 뉴스`, { body: `${i.title}${i.source ? " - "+i.source : ""}`, tag: i.id });
+    n.onclick = () => { window.open(i.link, "_blank"); n.close(); };
+  });
+  if (list.length > 3) new Notification(`새 뉴스 ${list.length}건`, { body: "페이지에서 전체를 확인하세요." });
+}
+
+function addKw(k){
+  k = k.trim(); if (!k) return;
+  if (keywords.includes(k)) { toast(`"${k}"는 이미 등록되어 있습니다.`); return; }
+  keywords.push(k); store.set("kw", keywords); toast(`"${k}" 추가됨`);
+  firstLoad = true; fetchAll();
+}
+function removeKw(k){
+  keywords = keywords.filter(x => x!==k); store.set("kw", keywords);
+  items = items.filter(i => i.keyword!==k); if (filter===k) filter=null;
+  toast(`"${k}" 삭제됨`); render();
+}
+
+$("addForm").onsubmit = e => { e.preventDefault(); addKw($("kw").value); $("kw").value=""; };
+$("refreshBtn").onclick = () => fetchAll();
+$("shareBtn").onclick = async () => {
+  if (!keywords.length) return toast("공유할 키워드가 없습니다.");
+  const url = location.origin + location.pathname + "?k=" + encodeURIComponent(keywords.join(","));
+  try{ await navigator.clipboard.writeText(url); toast("공유 링크를 복사했습니다."); }
+  catch{ prompt("아래 링크를 복사하세요", url); }
+};
+function syncNotifyBtn(){
+  const b = $("notifyBtn");
+  if (!("Notification" in window)) { b.hidden = true; return; }
+  b.textContent = Notification.permission==="granted" ? "알림 켜짐" : "알림 켜기";
+  b.disabled = Notification.permission!=="default";
+}
+$("notifyBtn").onclick = async () => { await Notification.requestPermission(); syncNotifyBtn(); };
+document.addEventListener("visibilitychange", () => { if (!document.hidden){ document.title="키워드 뉴스 알림"; } });
+
+syncNotifyBtn();
+fetchAll();
+setInterval(fetchAll, INTERVAL);
+</script>
+</body>
+</html>
